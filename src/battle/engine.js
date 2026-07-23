@@ -114,7 +114,7 @@ function dmgEnemy(e,amount,opt={}){
   fxText(e.x,e.y-70*e.scale,Math.round(amount),opt.crit?'#A5302A':'#1B1611',opt.crit?21:16);
   fxInk(e.x,e.y-34,.8);
   P.sp=clamp(P.sp+3,0,100);
-  B.hstop=Math.max(B.hstop,opt.hstop||.05);
+  B.hstop=Math.min(0.12, Math.max(B.hstop,opt.hstop||.05));
   B.shake=Math.max(B.shake,opt.shake||3);
   sfx('hit');
   if(e.hp<=0){killEnemy(e);return;}
@@ -173,14 +173,19 @@ function tryAttack(dirHint=0){
   if(P.state==='strike'||P.state==='lunge'){P.queued={dir:dirHint};return;}
   const t=nearestEnemy(460,dirHint);
   P.comboT=1.0;
-  if(t){P.target=t;P.state='lunge';P.stT=.4;P.face=t.x>P.x?1:-1;sfx('dash');}
+  if(t){
+    P.target=t;P.state='lunge';P.stT=.35;P._lungeAge=0;
+    P.face=t.x>P.x?1:-1;sfx('dash');
+  }
   else{P.state='strike';P.stT=.16;P.face=dirHint||P.face;P._hitDone=false;}
 }
 function tryDash(dir){
   if(B.state!=='run')return;
-  if(P.state==='hurt'||P.state==='cast')return;
+  if(P.state==='cast')return;
+  // 受擊後半／撲攻／出招皆可疾衝取消，避免黏住
+  if(P.state==='hurt'&&P.stT>0.16)return;
   P.state='dash';P.stT=.2;P.face=dir;P.vx=dir*860;P.inv=Math.max(P.inv,.24);
-  P.combo=0;P.queued=null;
+  P.queued=null;P.target=null;
   for(let i=0;i<4;i++)B.fx.push({t:0,life:.3,type:'streak',x:P.x-dir*i*14,y:P.y-30-i*3,dir});
   sfx('dash');
 }
@@ -189,6 +194,7 @@ function tryLaunch(){
   if(P.state==='hurt'||P.state==='cast')return;
   const t=nearestEnemy(180);
   P.state='strike';P.stT=.2;P._hitDone=false;P._launcher=true;
+  P.target=null;P.queued=null;
   if(t){P.face=t.x>P.x?1:-1;}
   P.vy=-560;P.air=true;P.y-=2;
   sfx('launch');
@@ -229,31 +235,46 @@ function strikeHit(){
   }
   P.combo++;
 }
-/* ---------- 奧義 ---------- */
+/* ---------- 奧義（frame 驅動，避免 setTimeout 軟鎖） ---------- */
+function hideCutin(){
+  const ci=$('#cutin');
+  ci.style.display='none';
+  ci.classList.remove('play');
+}
+function resolveSkillHit(){
+  if(!B||!P||P._skillResolved)return;
+  P._skillResolved=true;
+  const sk=P.ch.skill;
+  sfx('skill');B.shake=14;B.hstop=Math.min(0.12,.12);
+  fxRing(P.x,P.y-40,'#A5302A');
+  for(let i=0;i<26;i++)B.fx.push({t:0,life:rnd(.5,1.1),type:'blob',x:P.x+rnd(-40,40),y:P.y-30,
+    color:i%3?'#1B1611':'#A5302A',vx:rnd(-460,460),vy:rnd(-520,-60),r:rnd(4,14)});
+  for(const e of B.enemies){
+    if(e.hp<=0)continue;
+    if(Math.abs(e.x-P.x)<sk.radius){
+      dmgEnemy(e,P.atk*sk.mult*rnd(.95,1.05),{crit:true,noParry:true,pierce:true,launch:true,kx:380,shake:8});
+    }
+  }
+  updHUD();
+}
+function finishSkill(){
+  if(!B||!P)return;
+  hideCutin();
+  resolveSkillHit();
+  if(B.state==='cutin')B.state='run';
+  if(P.state==='cast'){P.state='idle';P.stT=0;}
+  P.vx=0;P.queued=null;P.target=null;
+}
 function trySkill(){
   if(!B||B.state!=='run'||P.sp<100)return;
-  P.sp=0;B.state='cutin';P.state='cast';P.stT=1;P.vx=0;
+  if(P.state==='cast')return;
+  P.sp=0;B.state='cutin';P.state='cast';P.stT=.9;P.vx=0;
+  P._skillResolved=false;P.queued=null;P.target=null;
   const ci=$('#cutin');
   ci.querySelector('.cname2').textContent=P.ch.name+'・'+P.ch.title;
   ci.querySelector('.sname2').textContent=P.ch.skill.name;
   ci.style.display='flex';ci.classList.remove('play');void ci.offsetWidth;ci.classList.add('play');
   updHUD();
-  setTimeout(()=>{ci.style.display='none';ci.classList.remove('play');
-    if(!B)return;
-    B.state='run';P.state='idle';P.stT=0;
-    const sk=P.ch.skill;
-    sfx('skill');B.shake=14;B.hstop=.12;
-    fxRing(P.x,P.y-40,'#A5302A');
-    for(let i=0;i<26;i++)B.fx.push({t:0,life:rnd(.5,1.1),type:'blob',x:P.x+rnd(-40,40),y:P.y-30,
-      color:i%3?'#1B1611':'#A5302A',vx:rnd(-460,460),vy:rnd(-520,-60),r:rnd(4,14)});
-    for(const e of B.enemies){
-      if(e.hp<=0)continue;
-      if(Math.abs(e.x-P.x)<sk.radius){
-        dmgEnemy(e,P.atk*sk.mult*rnd(.95,1.05),{crit:true,noParry:true,pierce:true,launch:true,kx:380,shake:8});
-      }
-    }
-    updHUD();
-  },880);
 }
 /* ---------- 更新 ---------- */
 function updHUD(){
@@ -269,36 +290,41 @@ function updHUD(){
 function updatePlayer(dt){
   P.anim+=dt;P.inv=Math.max(0,P.inv-dt);P.hurtF=Math.max(0,P.hurtF-dt);
   P.comboT-=dt;if(P.comboT<=0){P.combo=0;if(P.comboT<-2)P.comboCount=0;}
-  // 重力
-  if(P.air){P.vy+=1900*dt;P.y+=P.vy*dt;
+  // 重力（cast 除外仍可落地，避免浮空卡住）
+  if(P.air&&P.state!=='cast'){P.vy+=1900*dt;P.y+=P.vy*dt;
     if(P.y>=GY){P.y=GY;P.air=false;P.vy=0;fxInk(P.x,GY-4,.5);}}
   switch(P.state){
     case 'idle':case 'run':{
-      // 鍵盤移動
       let mv=0;if(keys.ArrowLeft||keys.a)mv=-1;if(keys.ArrowRight||keys.d)mv=1;
       if(mv){P.vx=mv*300*P.spd;P.face=mv;P.state='run';}
       else{P.vx*=Math.exp(-12*dt);if(Math.abs(P.vx)<10){P.vx=0;P.state='idle';}}
-      // 波間自動推進
       if(mv===0&&B.autoRun&&aliveEnemies()===0&&B.wave<B.zones.length-1){
-        const tx=B.zones[B.wave+1]-150;
-        if(P.x<tx){P.vx=280*P.spd;P.face=1;P.state='run';}
+        const tx=B.zones[B.wave+1]-120;
+        if(P.x<tx){P.vx=320*P.spd;P.face=1;P.state='run';}
       }
       break;}
     case 'lunge':{
-      P.stT-=dt;const t=P.target;
-      if(!t||t.hp<=0){P.state='idle';P.target=null;break;}
+      P.stT-=dt;P._lungeAge=(P._lungeAge||0)+dt;
+      const t=P.target;
+      if(!t||t.hp<=0||P._lungeAge>0.4){
+        P.state='strike';P.stT=.16;P._hitDone=false;P._launcher=false;P.target=null;break;
+      }
       const dx=t.x-P.x;P.face=dx>0?1:-1;
       P.x+=Math.sign(dx)*1150*dt;
-      // 空中目標跟上
-      if(t.air&&t.y<GY-30){P.air=true;P.y+=((t.y)-P.y)*10*dt;P.vy=0;}
-      if(Math.abs(dx)<70||P.stT<=0){P.state='strike';P.stT=.16;P._hitDone=false;P._launcher=false;}
+      // 空中只輕跟，不鎖死 vy，避免黏在空中
+      if(t.air&&t.y<GY-30&&P._lungeAge<0.22){
+        P.air=true;P.y+=((t.y)-P.y)*6*dt;P.vy=Math.min(P.vy,40);
+      }
+      if(Math.abs(dx)<70||P.stT<=0){
+        P.state='strike';P.stT=.16;P._hitDone=false;P._launcher=false;
+      }
       break;}
     case 'strike':{
       P.stT-=dt;
       if(!P._hitDone&&P.stT<=.11){P._hitDone=true;strikeHit();P._launcher=false;}
       if(P.stT<=0){
         if(P.queued){const q=P.queued;P.queued=null;tryAttack(q.dir);}
-        else P.state=P.air?'idle':'idle';
+        else{P.state='idle';P.target=null;}
       }
       break;}
     case 'dash':{
@@ -307,14 +333,34 @@ function updatePlayer(dt){
       break;}
     case 'hurt':{
       P.stT-=dt;P.x+=P.vx*dt;P.vx*=Math.exp(-6*dt);
-      if(P.stT<=0)P.state='idle';
+      if(P.stT<=0){P.state='idle';P.vx=0;}
       break;}
-    case 'cast':break;
+    case 'cast':{
+      P.stT-=dt;
+      // 動畫中段結算傷害；結束必回可控
+      if(P.stT<=.35&&!P._skillResolved)resolveSkillHit();
+      if(P.stT<=0)finishSkill();
+      break;}
+    default:
+      P.state='idle';P.stT=0;P.queued=null;P.target=null;
   }
   if(P.state==='run'||P.state==='idle')P.x+=P.vx*dt;
   P.x=clamp(P.x,40,B.st.len-40);
-  // 空中攻擊維持浮空
-  if(P.air&&(P.state==='strike'||P.state==='lunge'))P.vy=Math.min(P.vy,60);
+  if(P.air&&(P.state==='strike'||P.state==='lunge'))P.vy=Math.min(P.vy,80);
+}
+/** 狀態異常時強制回到可操作 */
+function recoverIfStuck(dt){
+  if(!B||!P||B.state==='over')return;
+  P._stuckT=(P._stuckT||0);
+  const locked=P.state==='cast'||P.state==='lunge'||P.state==='strike'||P.state==='dash'||P.state==='hurt'||B.state==='cutin';
+  if(locked)P._stuckT+=dt;else P._stuckT=0;
+  // 超過 1.4s 仍鎖住 → 強制解鎖
+  if(P._stuckT>1.4){
+    hideCutin();
+    if(B.state==='cutin')B.state='run';
+    P.state='idle';P.stT=0;P.vx=0;P.queued=null;P.target=null;
+    P._stuckT=0;P._skillResolved=true;
+  }
 }
 function aliveEnemies(){let n=0;for(const e of B.enemies)if(e.hp>0)n++;return n;}
 
@@ -450,23 +496,26 @@ function loop(now){
   // 時緩恢復
   if(B.tsT>0){B.tsT-=dt;if(B.tsT<=0)B.ts=1;}
   let sdt=dt*B.ts;
-  // 打擊停頓
-  if(B.hstop>0){B.hstop-=dt;sdt*=.06;}
+  // 打擊停頓（上限，避免幾乎停格）
+  if(B.hstop>0){B.hstop=Math.min(B.hstop,.12);B.hstop-=dt;sdt*=.18;}
   B.time+=sdt;B.bannerT-=dt;
-  if(B.state==='run'){
+  // cutin 期間仍推進玩家 cast 計時，避免只靠 timeout
+  if(B.state==='run'||B.state==='cutin'){
     updatePlayer(sdt);
-    for(const e of B.enemies)updateEnemy(e,sdt);
-    updateProjs(sdt);
-    B.enemies=B.enemies.filter(e=>!(e.state==='dead'&&e.stT<=0));
-    // 波次推進
-    if(aliveEnemies()===0){
-      if(B.wave>=B.st.waves.length){endBattle(true);}
-      else{
-        const nz=B.zones[B.wave+1];
-        if(B.wave<0||P.x>nz-260)spawnWave();
+    recoverIfStuck(dt);
+    if(B.state==='run'){
+      for(const e of B.enemies)updateEnemy(e,sdt);
+      updateProjs(sdt);
+      B.enemies=B.enemies.filter(e=>!(e.state==='dead'&&e.stT<=0));
+      if(aliveEnemies()===0){
+        if(B.wave>=B.st.waves.length){endBattle(true);}
+        else{
+          const nz=B.zones[B.wave+1];
+          if(B.wave<0||P.x>nz-260)spawnWave();
+        }
       }
+      updHUD();
     }
-    updHUD();
   }
   updateFx(sdt+dt*.3);
   // 相機
@@ -655,11 +704,24 @@ function endBattle(win){
 }
 $('#btn-retry').onclick=()=>{const i=B.idx;stopBattle();startBattle(i);};
 $('#btn-return').onclick=()=>{stopBattle();onReturnMenu();};
-$('#pause-btn').onclick=()=>{if(!B||B.state==='over')return;B.state='pause';$('#ov-pause').classList.add('show');};
-$('#btn-resume').onclick=()=>{$('#ov-pause').classList.remove('show');if(B){B.state='run';lastT=performance.now();}};
+$('#pause-btn').onclick=()=>{
+  if(!B||B.state==='over'||B.state==='cutin')return;
+  B.state='pause';$('#ov-pause').classList.add('show');
+};
+$('#btn-resume').onclick=()=>{
+  $('#ov-pause').classList.remove('show');
+  if(!B)return;
+  hideCutin();
+  if(P&&P.state==='cast')finishSkill();
+  B.state='run';
+  lastT=performance.now();
+};
 $('#btn-quit').onclick=()=>{stopBattle();onReturnMenu();};
-export function stopBattle(){cancelAnimationFrame(rafId);B=null;
-  $('#ov-result').classList.remove('show');$('#ov-pause').classList.remove('show');}
+export function stopBattle(){
+  cancelAnimationFrame(rafId);B=null;
+  hideCutin();
+  $('#ov-result').classList.remove('show');$('#ov-pause').classList.remove('show');
+}
 $('#skill-btn').onclick=e=>{e.stopPropagation();trySkill();};
 
 /* ---------- 輸入 ---------- */
