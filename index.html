@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>墨魂三國 Ink Soul Dynasty</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/MW3C/assets/index-CBUTTeX5.js"></script>
+  <link rel="stylesheet" crossorigin href="/MW3C/assets/index-z_6fGfyK.css">
+</head>
+<body>
+<div id="app">
+
+  <section class="screen active" id="scr-title">
+    <canvas id="title-art"></canvas>
+    <div class="title-stack">
+      <h1 id="game-title">墨<span>魂</span>三國</h1>
+      <div class="title-sub">亂世斷章・記憶重組</div>
+      <button class="brush-btn red title-tag" id="btn-start">觸 之 啟 卷</button>
+    </div>
+    <div class="title-foot">原創角色・水墨橫卷動作 — 靈感致敬 Memory Defrag 戰鬥系統</div>
+  </section>
+
+  <section class="screen" id="scr-menu">
+    <div class="topbar">
+      <h1 class="scr-title">選 卷</h1>
+      <span class="gold-chip">金 <b id="gold-menu">0</b></span>
+    </div>
+    <div id="stage-scroll"><div id="stage-track"></div></div>
+    <div class="menu-foot">
+      <button class="brush-btn" id="btn-chars" style="font-size:16px;padding:10px 24px">武將・修行</button>
+      <button class="back-btn" id="btn-help" style="margin-left:auto">戰法指南</button>
+    </div>
+  </section>
+
+  <section class="screen" id="scr-chars">
+    <div class="topbar">
+      <button class="back-btn" id="btn-chars-back">◀ 選卷</button>
+      <h1 class="scr-title">武 將</h1>
+      <span class="gold-chip">金 <b id="gold-chars">0</b></span>
+    </div>
+    <div id="char-list"></div>
+  </section>
+
+  <section class="screen" id="scr-battle">
+    <div id="battle-wrap"><canvas id="game"></canvas></div>
+    <div id="hud">
+      <div class="hp-wrap"><div id="hp-name">趙雲</div><div class="bar"><i id="hp-fill" style="width:100%"></i></div></div>
+      <div id="boss-wrap"><div id="boss-name">呂布</div><div class="bar" id="boss-bar"><i id="boss-fill" style="width:100%"></i></div></div>
+      <div id="wave-label"></div>
+      <div id="combo-tag">0 連</div>
+      <button id="pause-btn">暫停</button>
+      <button id="skill-btn">奧</button>
+    </div>
+    <div id="cutin"><div class="stripe"></div><div class="ctext"><div class="cname2"></div><div class="sname2"></div></div></div>
+    <div class="overlay" id="ov-pause">
+      <div class="ov-title" style="font-size:44px">小 憩</div>
+      <div class="ov-row">
+        <button class="brush-btn" id="btn-resume">續 戰</button>
+        <button class="brush-btn red" id="btn-quit">退 卷</button>
+      </div>
+    </div>
+    <div class="overlay" id="ov-result">
+      <div class="ov-title win" id="res-title">克 捷</div>
+      <div id="res-stars"></div>
+      <div id="res-lines"></div>
+      <div class="ov-row">
+        <button class="brush-btn red" id="btn-retry">再 戰</button>
+        <button class="brush-btn" id="btn-return">回 卷</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="overlay" id="ov-help">
+    <div id="help-box">
+      <h3>戰 法 指 南</h3>
+      <ul>
+        <li><b>輕點</b> — 撲向最近敵人出招，連點成連擊</li>
+        <li><b>左右滑</b> — 疾衝（衝刺中身影不受傷）</li>
+        <li><b>上滑</b> — 挑空敵人，空中輕點追擊浮空連段</li>
+        <li><b>見切</b> — 敵人<b>閃紅</b>之瞬出手攻擊＝完美反擊，時緩並蓄力</li>
+        <li><b>奧義</b> — 右下印章蓄滿後按下，發動必殺</li>
+        <li>鍵盤：←→ 衝刺　↑ 挑空　<b>J</b> 攻擊　<b>K</b> 奧義</li>
+      </ul>
+      <div style="text-align:center;margin-top:14px"><button class="brush-btn" id="btn-help-close" style="font-size:15px;padding:9px 26px">閱 畢</button></div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="rotate-hint"><div style="font-size:44px">⟳</div>請橫置裝置<br><span style="font-size:13px;letter-spacing:.15em;color:var(--wash)">本卷為橫幅水墨長卷</span></div>
+</div>
+</body>
+</html>
