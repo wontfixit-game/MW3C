@@ -12,7 +12,7 @@ export function buildChars() {
   const subName = save.sub ? (CHARS[save.sub]?.name || '—') : '未編制';
   const banner = document.createElement('div');
   banner.className = 'party-banner';
-  banner.innerHTML = `主將 <b>${mainName}</b>　·　副將 <b>${subName}</b><span class="party-hint">戰鬥中可切換（需副將）</span>`;
+  banner.innerHTML = `主將 <b>${mainName}</b>　·　副將 <b>${subName}</b><span class="party-hint">點「設為副將」編制第二人；戰鬥中按「換」或 L 切換</span>`;
   list.appendChild(banner);
 
   Object.keys(CHARS).forEach((k) => {
