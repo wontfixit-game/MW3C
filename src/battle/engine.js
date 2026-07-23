@@ -1,7 +1,7 @@
 import { $, clamp, rnd, TAU } from '../utils.js';
 import { CHARS, chStat } from '../data/chars.js';
 import { STAGES, eMul } from '../data/stages.js';
-import { save, persist } from '../save.js';
+import { save, persist, getPartyKeys } from '../save.js';
 import { initAudio, sfx } from '../audio.js';
 import { inkStroke, inkBlob, mulberry, drawMountains } from '../render/ink.js';
 import { drawChibi } from '../render/chibi.js';
@@ -27,27 +27,48 @@ addEventListener('resize',()=>{fitCanvas();paintTitle();});
 
 let B=null,P=null,lastT=0,rafId=0;
 
-export function startBattle(idx){
-  const st=STAGES[idx];
-  const sv=save.chars[save.sel],c=CHARS[save.sel],stat=chStat(save.sel,sv.lv);
-  P={key:save.sel,ch:c,x:180,y:GY,vx:0,vy:0,face:1,
-    hp:stat.hp,maxHp:stat.hp,atk:stat.atk,spd:c.spd,
-    state:'idle',stT:0,combo:0,comboT:0,comboCount:0,sp:0,inv:0,air:false,
-    target:null,anim:Math.random()*9,queued:null,hurtF:0};
-  // 波次區域
-  const zones=[];const total=st.waves.length+1;
-  for(let i=0;i<total;i++)zones.push(340+(st.len-680)*(i/(total-1)));
-  B={idx,st,zones,wave:-1,enemies:[],projs:[],fx:[],texts:[],
-    cam:0,shake:0,ts:1,tsT:0,hstop:0,state:'run',time:0,over:false,
-    bannerT:0,banner:'',autoRun:true,bossOn:false};
-  $('#hp-name').textContent=`${c.name}　Lv.${sv.lv}`;
-  $('#boss-wrap').style.display='none';
-  $('#combo-tag').style.opacity=0;
-  $('#ov-result').classList.remove('show');$('#ov-pause').classList.remove('show');
+const SWITCH_CD = 9;
+
+function mkMember(key) {
+  const sv = save.chars[key];
+  const c = CHARS[key];
+  const stat = chStat(key, sv.lv);
+  return { key, ch: c, lv: sv.lv, hp: stat.hp, maxHp: stat.hp, atk: stat.atk, spd: c.spd };
+}
+
+export function startBattle(idx) {
+  const st = STAGES[idx];
+  const { main, sub } = getPartyKeys();
+  const members = { [main]: mkMember(main) };
+  if (sub) members[sub] = mkMember(sub);
+  const m = members[main];
+  P = {
+    key: main, ch: m.ch, x: 180, y: GY, vx: 0, vy: 0, face: 1,
+    hp: m.hp, maxHp: m.maxHp, atk: m.atk, spd: m.spd,
+    state: 'idle', stT: 0, combo: 0, comboT: 0, comboCount: 0, sp: 0, inv: 0, air: false,
+    target: null, anim: Math.random() * 9, queued: null, hurtF: 0,
+  };
+  const zones = [];
+  const total = st.waves.length + 1;
+  for (let i = 0; i < total; i++) zones.push(340 + (st.len - 680) * (i / (total - 1)));
+  B = {
+    idx, st, zones, wave: -1, enemies: [], projs: [], fx: [], texts: [],
+    cam: 0, shake: 0, ts: 1, tsT: 0, hstop: 0, state: 'run', time: 0, over: false,
+    bannerT: 0, banner: '', autoRun: true, bossOn: false,
+    party: { main, sub, members, switchCd: 0 },
+  };
+  $('#hp-name').textContent = `${m.ch.name}　Lv.${m.lv}`;
+  $('#boss-wrap').style.display = 'none';
+  $('#combo-tag').style.opacity = 0;
+  $('#ov-result').classList.remove('show');
+  $('#ov-pause').classList.remove('show');
   updHUD();
-  goto('#scr-battle');fitCanvas();
+  goto('#scr-battle');
+  fitCanvas();
   showBanner(`${st.chap}・${st.name}`);
-  lastT=performance.now();cancelAnimationFrame(rafId);rafId=requestAnimationFrame(loop);
+  lastT = performance.now();
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
 }
 function showBanner(txt){B.banner=txt;B.bannerT=1.6;}
 
@@ -277,18 +298,85 @@ function trySkill(){
   updHUD();
 }
 /* ---------- 更新 ---------- */
-function updHUD(){
-  $('#hp-fill').style.width=(P.hp/P.maxHp*100)+'%';
-  const sb=$('#skill-btn');
-  sb.style.background=`conic-gradient(var(--seal) ${P.sp*3.6}deg, rgba(165,48,42,.15) ${P.sp*3.6}deg)`;
-  sb.classList.toggle('ready',P.sp>=100);
-  if(B&&B.bossOn){
-    const bo=B.enemies.find(e=>e.boss);
-    if(bo)$('#boss-fill').style.width=clamp(bo.hp/bo.maxHp*100,0,100)+'%';
+function trySwitch() {
+  if (!B || B.state !== 'run' || !P) return;
+  const party = B.party;
+  if (!party?.sub) return;
+  if (party.switchCd > 0) return;
+  if (P.state === 'cast' || P.state === 'hurt') return;
+
+  const from = P.key;
+  const to = from === party.main ? party.sub : party.main;
+  const next = party.members[to];
+  if (!next || next.hp <= 0) {
+    fxText(P.x, P.y - 90, '副將已力竭', '#A5302A', 16);
+    return;
+  }
+
+  // 保存當前氣血
+  party.members[from].hp = Math.max(0, P.hp);
+
+  P.key = to;
+  P.ch = next.ch;
+  P.maxHp = next.maxHp;
+  P.hp = next.hp;
+  P.atk = next.atk;
+  P.spd = next.spd;
+  P.state = 'idle';
+  P.stT = 0;
+  P.vx = 0;
+  P.vy = 0;
+  P.air = false;
+  P.y = GY;
+  P.target = null;
+  P.queued = null;
+  P.sp = clamp(P.sp * 0.7, 0, 100);
+  P.inv = Math.max(P.inv, 0.55);
+  P.anim = Math.random() * 9;
+  party.switchCd = SWITCH_CD;
+
+  fxInk(P.x, P.y - 30, 1.4, '#A5302A');
+  fxRing(P.x, P.y - 40, '#8C6B2F');
+  showBanner(`切換・${next.ch.name}`);
+  sfx('dash');
+  $('#hp-name').textContent = `${next.ch.name}　Lv.${next.lv}`;
+  updHUD();
+}
+
+function updHUD() {
+  if (!P) return;
+  $('#hp-fill').style.width = (P.hp / P.maxHp * 100) + '%';
+  const sb = $('#skill-btn');
+  sb.style.background = `conic-gradient(var(--seal) ${P.sp * 3.6}deg, rgba(165,48,42,.15) ${P.sp * 3.6}deg)`;
+  sb.classList.toggle('ready', P.sp >= 100);
+
+  const sw = $('#switch-btn');
+  const label = $('#switch-label');
+  const party = B?.party;
+  if (party?.sub) {
+    sw.classList.add('show');
+    const other = P.key === party.main ? party.sub : party.main;
+    const otherM = party.members[other];
+    const dead = !otherM || otherM.hp <= 0;
+    const cd = party.switchCd;
+    sw.disabled = dead || cd > 0 || P.state === 'cast';
+    sw.classList.toggle('ready', !sw.disabled);
+    if (cd > 0) label.innerHTML = `<span class="cd">${Math.ceil(cd)}</span>`;
+    else if (dead) label.textContent = '竭';
+    else label.textContent = CHARS[other]?.name?.[0] || '換';
+  } else {
+    sw.classList.remove('show');
+    sw.disabled = true;
+  }
+
+  if (B && B.bossOn) {
+    const bo = B.enemies.find((e) => e.boss);
+    if (bo) $('#boss-fill').style.width = clamp(bo.hp / bo.maxHp * 100, 0, 100) + '%';
   }
 }
 function updatePlayer(dt){
   P.anim+=dt;P.inv=Math.max(0,P.inv-dt);P.hurtF=Math.max(0,P.hurtF-dt);
+  if(B.party)B.party.switchCd=Math.max(0,B.party.switchCd-dt);
   P.comboT-=dt;if(P.comboT<=0){P.combo=0;if(P.comboT<-2)P.comboCount=0;}
   // 重力（cast 除外仍可落地，避免浮空卡住）
   if(P.air&&P.state!=='cast'){P.vy+=1900*dt;P.y+=P.vy*dt;
@@ -723,6 +811,7 @@ export function stopBattle(){
   $('#ov-result').classList.remove('show');$('#ov-pause').classList.remove('show');
 }
 $('#skill-btn').onclick=e=>{e.stopPropagation();trySkill();};
+$('#switch-btn').onclick=e=>{e.stopPropagation();trySwitch();};
 
 /* ---------- 輸入 ---------- */
 const keys={};
@@ -731,6 +820,7 @@ addEventListener('keydown',e=>{
   if(!B||B.state!=='run')return;
   if(e.key==='j'||e.key==='J'||e.key==='z')tryAttack(P.face);
   if(e.key==='k'||e.key==='K'||e.key==='x')trySkill();
+  if(e.key==='l'||e.key==='L')trySwitch();
   if(e.key==='ArrowUp'||e.key==='w')tryLaunch();
   if(e.key==='Shift')tryDash(P.face);
 });

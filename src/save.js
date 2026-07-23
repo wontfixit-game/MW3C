@@ -5,6 +5,7 @@ const SAVE_KEY = 'mohun_sanguo_save_v1';
 const defaultSave = () => ({
   gold: 120,
   sel: 'zhaoyun',
+  sub: null,
   stars: [0, 0, 0, 0, 0],
   chars: {
     zhaoyun: { lv: 1, un: 1 },
@@ -15,12 +16,18 @@ const defaultSave = () => ({
 
 export let save = defaultSave();
 
+function normalizeParty() {
+  if (!save.chars[save.sel]?.un) save.sel = 'zhaoyun';
+  if (save.sub && (!save.chars[save.sub]?.un || save.sub === save.sel)) save.sub = null;
+}
+
 export function loadSave() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return;
     const d = JSON.parse(raw);
     save = { ...defaultSave(), ...d, chars: { ...defaultSave().chars, ...(d.chars || {}) } };
+    normalizeParty();
   } catch {
     /* 無存檔或損壞 */
   }
@@ -28,6 +35,7 @@ export function loadSave() {
 
 let saveTimer = null;
 export function persist() {
+  normalizeParty();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
@@ -48,4 +56,10 @@ export function toast(msg) {
 
 export function stageUnlocked(i) {
   return i === 0 || save.stars[i - 1] > 0;
+}
+
+/** 出戰編制：主將必有，副將可空 */
+export function getPartyKeys() {
+  normalizeParty();
+  return { main: save.sel, sub: save.sub };
 }

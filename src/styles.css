@@ -93,11 +93,29 @@ h1.scr-title{font-size:clamp(22px,4vw,30px);letter-spacing:.5em;text-indent:.5em
   color:var(--paper);font-family:inherit;font-size:26px;font-weight:800;cursor:pointer;
   display:flex;align-items:center;justify-content:center;box-shadow:2px 3px 0 rgba(27,22,17,.3)}
 #skill-btn.ready{animation:sealPulse .9s ease-in-out infinite}
+#switch-btn{position:absolute;right:118px;bottom:28px;width:64px;height:64px;border-radius:50%;pointer-events:auto;
+  border:2px solid var(--ink);background:var(--paper2);color:var(--ink);font-family:inherit;font-size:18px;font-weight:800;
+  cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:2px 2px 0 rgba(27,22,17,.2);
+  letter-spacing:.05em}
+#switch-btn.show{display:flex}
+#switch-btn:disabled{opacity:.4;cursor:default}
+#switch-btn.ready{border-color:var(--seal);color:var(--seal);animation:sealPulse .9s ease-in-out infinite}
+#switch-btn .cd{font-size:13px;letter-spacing:0}
 @keyframes sealPulse{50%{transform:scale(1.08);box-shadow:0 0 22px rgba(165,48,42,.8)}}
 #pause-btn{position:absolute;right:16px;top:12px;pointer-events:auto;background:none;border:1.5px solid var(--ink);
   color:var(--ink);font-family:inherit;font-size:13px;padding:5px 10px;letter-spacing:.15em;cursor:pointer}
 #combo-tag{position:absolute;left:16px;top:70px;font-size:26px;font-weight:900;color:var(--seal);
   letter-spacing:.05em;opacity:0;transform:rotate(-6deg);text-shadow:2px 2px 0 rgba(27,22,17,.15)}
+
+.party-banner{flex:0 0 auto;width:100%;padding:4px 8px 14px;font-size:15px;letter-spacing:.12em;color:var(--ink)}
+.party-banner b{color:var(--seal-d)}
+.party-banner .party-hint{display:block;margin-top:6px;font-size:12px;letter-spacing:.08em;color:var(--wash)}
+.char-card.sub-selected{outline:2px dashed var(--gold);outline-offset:-2px}
+.role-tag{display:inline-block;margin-left:6px;font-size:11px;padding:2px 5px;letter-spacing:.1em;vertical-align:middle;
+  background:var(--ink);color:var(--paper);border-radius:2px}
+.role-tag.sub{background:var(--gold)}
+.char-actions{flex-wrap:wrap}
+.char-actions button.sub{border-color:var(--gold);color:var(--gold)}
 
 #cutin{position:absolute;inset:0;display:none;align-items:center;z-index:8;overflow:hidden;pointer-events:none}
 #cutin .stripe{position:absolute;left:-5%;width:110%;height:38%;top:31%;background:var(--seal);
