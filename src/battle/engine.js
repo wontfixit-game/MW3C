@@ -17,6 +17,7 @@ export function setBattleHooks({ onReturnMenu: fn } = {}) {
 const VW=960,VH=540,GY=458;
 const cv=$('#game'),ctx=cv.getContext('2d');
 export function fitCanvas(){
+  // Keep 16:9 battle world; portrait letterboxes vertically and fills width.
   const w=innerWidth,h=innerHeight,r=Math.min(w/VW,h/VH);
   cv.width=VW*devicePixelRatio*r|0;cv.height=VH*devicePixelRatio*r|0;
   cv.style.width=VW*r+'px';cv.style.height=VH*r+'px';
@@ -827,18 +828,26 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>keys[e.key]=false);
 
 let ptr=null;
-cv.addEventListener('pointerdown',e=>{
+const battleRoot=$('#scr-battle');
+function isBattleUi(t){
+  return !!(t&&t.closest&&t.closest('button,.overlay,#cutin'));
+}
+battleRoot.addEventListener('pointerdown',e=>{
+  if(isBattleUi(e.target))return;
   initAudio();
-  ptr={sx:e.clientX,sy:e.clientY,st:performance.now()};
+  ptr={sx:e.clientX,sy:e.clientY,st:performance.now(),id:e.pointerId};
 });
 addEventListener('pointerup',e=>{
-  if(!ptr||!B||B.state!=='run'){ptr=null;return;}
+  if(!ptr||(ptr.id!=null&&e.pointerId!==ptr.id))return;
+  if(!B||B.state!=='run'){ptr=null;return;}
   const dx=e.clientX-ptr.sx,dy=e.clientY-ptr.sy,dt=performance.now()-ptr.st;
   const dist=Math.hypot(dx,dy);
   if(dist<24&&dt<320){
-    // 輕點：往點擊方向攻擊
+    // 輕點：對應畫布世界座標方向（直向時可點整屏）
     const rect=cv.getBoundingClientRect();
-    const wx=(ptr.sx-rect.left)/cv._scale+B.cam;
+    const sx=clamp(ptr.sx,rect.left,rect.right);
+    const scale=cv._scale||1;
+    const wx=(sx-rect.left)/scale+B.cam;
     tryAttack(wx>P.x?1:-1);
   }else if(dist>=34){
     if(Math.abs(dy)>Math.abs(dx)){
@@ -847,5 +856,6 @@ addEventListener('pointerup',e=>{
   }
   ptr=null;
 });
+addEventListener('pointercancel',()=>{ptr=null;});
 
 
