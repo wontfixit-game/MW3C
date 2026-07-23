@@ -29,7 +29,7 @@ Repo：https://github.com/wontfixit-game/MW3C
 1. Repo → **Settings → Pages**
 2. **Source** 選 **GitHub Actions**
 3. 上傳後會跑 `.github/workflows/deploy.yml` 自動建置
-4. 完成後網址：`https://wontonsit-game.github.io/MW3C/`
+4. 完成後網址：`https://wontfixit-game.github.io/MW3C/`
 
 ## 專案結構
 
